@@ -17,8 +17,9 @@ void makeMove(int x1, int y1, int x2, int y2);
 int main() {
     sf::Texture background, start, white, black;
 
-    bool selected = false, draw = true, playerTurn = false;
-    char player, comp;
+    bool selected = false, draw = true, playerTurn = false, buttonRelease = true;
+    char player, comp, click = 0;
+    int x, y, x1, y1;
     sf::Font font;
 
     if (!white.loadFromFile("checkerwhite.png"))
@@ -120,18 +121,35 @@ int main() {
         }
 
         else if(playerTurn) {   //or player needs to make a play
-            if (sf::Mouse::isButtonPressed(sf::Mouse::Left)) {
+            if (click == 0 && sf::Mouse::isButtonPressed(sf::Mouse::Left) && buttonRelease) {
                 sf::Vector2i position = sf::Mouse::getPosition(window);
-                int x = position.x, y = position.y;
-
-                x = indexFromCoordinate(x)*112;
-                y = indexFromCoordinate(y)*112;
+                x = indexFromCoordinate(position.x);
+                y = indexFromCoordinate(position.y);
                 rectangle.setFillColor(sf::Color(255, 255, 20, 150));
-                rectangle.setPosition(x, y);
-
+                rectangle.setPosition(x*112, y*112);
+                click = 1;
+                buttonRelease = false;
                 drawPieces();
 
-            }//capture mouse click
+            }
+            else if (click == 1 && !sf::Mouse::isButtonPressed(sf::Mouse::Left) && !buttonRelease)
+                        buttonRelease = true;
+
+            else if (click == 1 && buttonRelease && sf::Mouse::isButtonPressed(sf::Mouse::Left)) {
+                sf::Vector2i position = sf::Mouse::getPosition(window);
+                x1 = indexFromCoordinate(position.x);
+                y1 = indexFromCoordinate(position.y);
+                click = 2;
+                buttonRelease = false;
+                board[y][x] = 'v';
+                board[y1][x1] = player;
+                drawPieces();
+            }
+
+            else if (click == 2 && !sf::Mouse::isButtonPressed(sf::Mouse::Left) && !buttonRelease) {
+                click = 0;
+                buttonRelease = true;
+            }
             //highlight selected tile if valid
             //wait for next click
             //either make move or highlight a different tile
