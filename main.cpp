@@ -1,9 +1,11 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
+#include <cstdlib>
 #include <windows.h>
 
 //Global variable declarations
 char board[8][8];
+char player, comp;
 sf::Sprite wht, blk, bgnd;
 sf::RectangleShape rectangle(sf::Vector2f(112, 112));
 sf::RenderWindow window(sf::VideoMode(896, 896), "Tomas' Unbeatable Checkers Game");
@@ -11,14 +13,15 @@ sf::RenderWindow window(sf::VideoMode(896, 896), "Tomas' Unbeatable Checkers Gam
 //Function prototypes
 void drawPieces();
 int indexFromCoordinate(int coord);
-bool mustJump(char player, char comp, bool playerTurn);
+bool mustJump(bool playerTurn);
+bool isPlayerMoveValid(int x1, int y1, int x2, int y2);
 void makeMove(int x1, int y1, int x2, int y2);
 
 int main() {
     sf::Texture background, start, white, black;
 
     bool selected = false, draw = true, playerTurn = false, buttonRelease = true;
-    char player, comp, click = 0;
+    char click = 0;
     int x, y, x1, y1;
     sf::Font font;
 
@@ -105,6 +108,7 @@ int main() {
                         else if(i > 4)
                             board[i][j] = player;  //'w' = white
                         else board[i][j] = 'v'; //'v' = vacant: the tile is available
+            board[1][2] = 'v';
         }
 
         else if(draw) {     //board needs to be updated
@@ -125,11 +129,13 @@ int main() {
                 sf::Vector2i position = sf::Mouse::getPosition(window);
                 x = indexFromCoordinate(position.x);
                 y = indexFromCoordinate(position.y);
-                rectangle.setFillColor(sf::Color(255, 255, 20, 150));
-                rectangle.setPosition(x*112, y*112);
-                click = 1;
-                buttonRelease = false;
-                drawPieces();
+                if (board[y][x] == player) {
+                    rectangle.setFillColor(sf::Color(255, 255, 20, 150));
+                    rectangle.setPosition(x*112, y*112);
+                    click = 1;
+                    buttonRelease = false;
+                    drawPieces();
+                }
 
             }
             else if (click == 1 && !sf::Mouse::isButtonPressed(sf::Mouse::Left) && !buttonRelease)
@@ -139,20 +145,25 @@ int main() {
                 sf::Vector2i position = sf::Mouse::getPosition(window);
                 x1 = indexFromCoordinate(position.x);
                 y1 = indexFromCoordinate(position.y);
-                click = 2;
-                buttonRelease = false;
-                board[y][x] = 'v';
-                board[y1][x1] = player;
-                drawPieces();
+
+                if (isPlayerMoveValid(x,y,x1,y1)) {
+                    if(mustJump(true) && y - y1 != 2);
+                    else {
+                        click = 2;
+                        buttonRelease = false;
+                        board[y][x] = 'v';
+                        board[y1][x1] = player;
+                        drawPieces();
+                    }
+                }
+                else if (board[y1][x1] == player)
+                    click = 0;
             }
 
             else if (click == 2 && !sf::Mouse::isButtonPressed(sf::Mouse::Left) && !buttonRelease) {
                 click = 0;
                 buttonRelease = true;
             }
-            //highlight selected tile if valid
-            //wait for next click
-            //either make move or highlight a different tile
         }
 
         else {      //else computer needs to make a move
@@ -195,103 +206,40 @@ int indexFromCoordinate(int coord) {
     return index;
 }
 
-//This function finds out if there is a jump to be made. It automatically makes the jump if its the computer's turn
-bool mustJump(char player, char comp, bool playerTurn) {
-    bool mustJump = false;
+//This function finds out if there is a jump to be made. It automatically makes the jump if it's the computer's turn
+bool mustJump(bool playerTurn) {
 
     if(playerTurn) {
-        for(int i = 0; i < 8; ++i)
+        for(int i = 0; i < 6; ++i)
             for(int j = 0; j < 8; ++j)
-                if(board[i][j] == player) {
-                    if(i > 1 && j > 1)
-                        if((board[i-1][j-1] == comp || board[i-1][j-1] == (char)toupper(comp))
-                           && board[i-2][j-2] == 'v') {
-                            mustJump = true;
-                            board[i-2][j-2] = 'j';   //j = player must jump here
-                        }
-                    if(i > 1 && j < 6)
-                        if((board[i-1][j+1] == comp || board[i-1][j+1] == (char)toupper(comp))
-                           && board[i-2][j+2] == 'v') {
-                            mustJump = true;
-                            board[i-2][j+2] = 'j';   //j = player must jump here
-                        }
-                }
-
-                else if(board[i][j] == (char)toupper(player)) {
-                    if(i > 1 && j > 1)
-                        if((board[i-1][j-1] == comp || board[i-1][j-1] == (char)toupper(comp))
-                           && board[i-2][j-2] == 'v') {
-                            mustJump = true;
-                            board[i-2][j-2] = 'j';   //j = player must jump here
-                        }
-                    if(i > 1 && j < 6)
-                        if((board[i-1][j+1] == comp || board[i-1][j+1] == (char)toupper(comp))
-                           && board[i-2][j+2] == 'v') {
-                            mustJump = true;
-                            board[i-2][j+2] = 'j';   //j = player must jump here
-                        }
-                    if(i < 6 && j > 1)
-                        if((board[i+1][j-1] == comp || board[i+1][j-1] == (char)toupper(comp))
-                           && board[i+2][j-2] == 'v') {
-                            mustJump = true;
-                            board[i-2][j-2] = 'j';   //j = player must jump here
-                        }
-                    if(i < 6 && j < 6)
-                        if((board[i+1][j+1] == comp || board[i+1][j+1] == (char)toupper(comp))
-                            && board[i+2][j+2] == 'v') {
-                            mustJump = true;
-                            board[i+2][j+2] = 'j';   //j = player must jump here
-                        }
+                if (board[i][j] == 'v') {
+                    if(j > 2) { //left
+                        if(board[i+1][j-1] == comp && board[i+2][j-2] == player)
+                            return true;
+                    }
+                    if(j < 6) { //right
+                        if(board[i+1][j+1] == comp && board[i+2][j+2] == player)
+                            return true;
+                    }
                 }
     }
 
     else {
-        for(int i = 0; i < 8; ++i)
+        for(int i = 0; i < 6; ++i)
             for(int j = 0; j < 8; ++j)
                 if(board[i][j] == comp) {
-                    if(i < 6 && j > 1)
-                        if((board[i+1][j-1] == player || board[i+1][j-1] == (char)toupper(player))
-                           && board[i+2][j-2] == 'v') {
-                            mustJump = true;
-                            board[i-2][j-2] = 'j';   //j = player must jump here
-                        }
-                    if(i < 6 && j < 6)
-                        if((board[i+1][j+1] == player || board[i+1][j+1] == (char)toupper(player))
-                            && board[i+2][j+2] == 'v') {
-                            mustJump = true;
-                            board[i+2][j+2] = 'j';   //j = player must jump here
-                        }
-                }
+                    if(j > 2) { //left
+                        if(board[i+1][j-1] == player && board[i+2][j-2] == 'v')
+                            return true;
+                    }
+                    if(j < 6) {
+                        if(board[i+1][j+1] == player && board[i+2][j+2] == 'v')
+                            return true;
+                    }
 
-                else if(board[i][j] == (char)toupper(comp)) {
-                    if(i > 1 && j > 1)
-                        if((board[i-1][j-1] == player || board[i-1][j-1] == (char)toupper(player))
-                           && board[i-2][j-2] == 'v') {
-                            mustJump = true;
-                            board[i-2][j-2] = 'j';   //j = player must jump here
-                        }
-                    if(i > 1 && j < 6)
-                        if((board[i-1][j+1] == player || board[i-1][j+1] == (char)toupper(player))
-                           && board[i-2][j+2] == 'v') {
-                            mustJump = true;
-                            board[i-2][j+2] = 'j';   //j = player must jump here
-                        }
-                    if(i < 6 && j > 1)
-                        if((board[i+1][j-1] == player || board[i+1][j-1] == (char)toupper(player))
-                           && board[i+2][j-2] == 'v') {
-                            mustJump = true;
-                            board[i-2][j-2] = 'j';   //j = player must jump here
-                        }
-                    if(i < 6 && j < 6)
-                        if((board[i+1][j+1] == player || board[i+1][j+1] == (char)toupper(player))
-                            && board[i+2][j+2] == 'v') {
-                            mustJump = true;
-                            board[i+2][j+2] = 'j';   //j = player must jump here
-                        }
                 }
     }
-
-    return mustJump;
+    return false;
 }
 
 //Responsible for making moves within the array
@@ -313,4 +261,14 @@ void makeMove(int x1, int y1, int x2, int y2) {
     }
 
     return;
+}
+
+bool isPlayerMoveValid(int x1, int y1, int x2, int y2) {
+    if (board[y1][x1] == player && board[y2][x2] == 'v' && y1 - y2 == 1 && abs(x2 - x1) == 1)
+        return true;
+    else if (y1 - y2 == 2 && abs(x2 - x1) == 2) {
+        if (board[(y2+y1)/2][(x2+x1)/2] == comp && board[y2][x2] == 'v')
+            return true;
+    }
+    return false;
 }

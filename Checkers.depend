@@ -1,7 +1,8 @@
 # depslib dependency file v1.0
-1591661360 source:c:\users\kluci\documents\checkers\main.cpp
+1591819898 source:c:\users\kluci\documents\checkers\main.cpp
 	<SFML/Graphics.hpp>
 	<iostream>
+	<cstdlib>
 	<windows.h>
 
 1557276638 c:\tdm-gcc-64\sfml-2.5.1\include\sfml\graphics.hpp
