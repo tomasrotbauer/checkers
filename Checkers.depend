@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1592019902 source:c:\users\kluci\documents\checkers\main.cpp
+1592158661 source:c:\users\kluci\documents\checkers\main.cpp
 	<SFML/Graphics.hpp>
 	<iostream>
 	<cstdlib>
@@ -414,5 +414,9 @@
 	<SFML/Graphics/Drawable.hpp>
 	<SFML/Window/GlResource.hpp>
 
-1591845413 c:\users\kluci\documents\checkers\ai.h
+1592157201 c:\users\kluci\documents\checkers\ai.h
+
+1592157201 source:c:\users\kluci\documents\checkers\ai.cpp
+	"ai.h"
+	<iostream>
 
