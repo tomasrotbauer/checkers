@@ -23,10 +23,10 @@ struct node {
 void drawPieces();
 int indexFromCoordinate(int coord);
 bool mustPlayerJump();
-bool mustJump(struct node& parent, int tempBoard[8][8], bool playerTurn);
-std::string mustRecapture(bool playerTurn, int x, int y, char tempBoard[8][8]);
+bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], struct node* parent, bool update);
 bool isPlayerMoveValid(int x1, int y1, int x2, int y2);
 void smartMove();
+void updateBoard(char theBoard[8][8], struct node* config);
 
 int main() {
     sf::Texture background, start, white, black, White, Black;
@@ -173,7 +173,7 @@ int main() {
                         board[y1][x1] = board[y][x];
                     board[y][x] = 'v';
                     drawPieces();
-                    if (!(mustRecapture(true, x1, y1, board).length()) || abs(y - y1) == 1) {
+                    if (!mustJumpRecapture(true, x1, y1, &board, nullptr, false) || abs(y - y1) == 1) {
                         click = 2;
                         buttonRelease = false;
                         playerTurn = false;
@@ -269,112 +269,6 @@ bool mustPlayerJump() {
     return false;
 }
 
-std::string mustRecapture(bool playerTurn, int x, int y, char tempBoard[8][8]) {
-    if(y == 0)
-        return "";
-
-    if(playerTurn) {
-        if(x > 1) { //left
-            if(y > 1) { //up
-                if(std::tolower(tempBoard[y-1][x-1]) == comp && tempBoard[y-2][x-2] == 'v') {
-                    tempBoard[y-1][x-1] = 'v';
-                    tempBoard[y-2][x-2] = y == 2 ? std::toupper(tempBoard[y][x]) : tempBoard[y][x];
-                    tempBoard[y][x] = 'v';
-
-                    return 'v' + std::to_string(y) + std::to_string(x) + 'v' + std::to_string(y-1)
-                            + std::to_string(x-1) + tempBoard[y-2][x-2] + std::to_string(y-2)
-                            + std::to_string(x-2) + mustRecapture(true, x-2, y-2, tempBoard);
-                }
-            }
-            if(y < 6) { //down
-                if(tempBoard[y][x] == std::toupper(player) && std::tolower(tempBoard[y+1][x-1]) == comp && tempBoard[y+2][x-2] == 'v') {
-                    tempBoard[y][x] = 'v';
-                    tempBoard[y+1][x-1] = 'v';
-                    tempBoard[y+2][x-2] = std::toupper(player);
-
-                    return 'v' + std::to_string(y) + std::to_string(x) + 'v' + std::to_string(y+1)
-                            + std::to_string(x-1) + std::to_string(std::toupper(player)) + std::to_string(y+2) + std::to_string(x-2)
-                            + mustRecapture(true, x-2, y+2, tempBoard);
-                }
-            }
-        }
-        if(x < 6) { //right
-            if(y > 1) { //up
-                if(std::tolower(tempBoard[y-1][x+1]) == comp && tempBoard[y-2][x+2] == 'v') {
-                    tempBoard[y-1][x+1] = 'v';
-                    tempBoard[y-2][x+2] = y == 2 ? std::toupper(tempBoard[y][x]) : tempBoard[y][x];
-                    tempBoard[y][x] = 'v';
-
-                    return 'v' + std::to_string(y) + std::to_string(x) + 'v' + std::to_string(y-1)
-                            + std::to_string(x+1) + tempBoard[y-2][x+2] + std::to_string(y-2)
-                            + std::to_string(x+2) + mustRecapture(true, x+2, y-2, tempBoard);
-                }
-            }
-            if(y < 6) { //down
-                if(tempBoard[y][x] == std::toupper(player) && std::tolower(tempBoard[y+1][x+1]) == comp && tempBoard[y+2][x+2] == 'v') {
-                    tempBoard[y][x] = 'v';
-                    tempBoard[y+1][x+1] = 'v';
-                    tempBoard[y+2][x+2] = std::toupper(player);
-
-                    return 'v' + std::to_string(y) + std::to_string(x) + 'v' + std::to_string(y+1)
-                            + std::to_string(x+1) + std::to_string(std::toupper(player)) + std::to_string(y+2) + std::to_string(x+2)
-                            + mustRecapture(true, x+2, y+2, tempBoard);
-                }
-            }
-        }
-    }
-    else {
-        if(x > 1) { //left
-            if(y > 1) { //up
-                if(tempBoard[y][x] == std::toupper(comp) && tempBoard[y-1][x-1] == player && tempBoard[y-2][x-2] == 'v') {
-                    tempBoard[y-1][x-1] = 'v';
-                    tempBoard[y-2][x-2] = tempBoard[y][x];
-                    tempBoard[y][x] = 'v';
-
-                    return 'v' + std::to_string(y) + std::to_string(x) + 'v' + std::to_string(y-1)
-                            + std::to_string(x-1) + std::to_string(std::toupper(comp)) + std::to_string(y-2)
-                            + std::to_string(x-2) + mustRecapture(true, x-2, y-2, tempBoard);
-                }
-            }
-            if(y < 6) { //down
-                if(std::tolower(tempBoard[y+1][x-1]) == player && tempBoard[y+2][x-2] == 'v') {
-                    tempBoard[y+1][x-1] = 'v';
-                    tempBoard[y+2][x-2] = y == 5 ? std::toupper(tempBoard[y][x]) : tempBoard[y][x];
-                    tempBoard[y][x] = 'v';
-
-                    return 'v' + std::to_string(y) + std::to_string(x) + 'v' + std::to_string(y+1)
-                            + std::to_string(x-1) + tempBoard[y+2][x-2] + std::to_string(y+2) + std::to_string(x-2)
-                            + mustRecapture(true, x-2, y+2, tempBoard);
-                }
-            }
-        }
-        if(x < 6) { //right
-            if(y > 1) { //up
-                if(tempBoard[y][x] == std::toupper(comp) && tempBoard[y-1][x+1] == player && tempBoard[y-2][x+2] == 'v') {
-                    tempBoard[y-1][x+1] = 'v';
-                    tempBoard[y-2][x+2] = tempBoard[y][x];
-                    tempBoard[y][x] = 'v';
-
-                    return 'v' + std::to_string(y) + std::to_string(x) + 'v' + std::to_string(y-1)
-                            + std::to_string(x+1) + std::to_string(std::toupper(comp)) + std::to_string(y-2)
-                            + std::to_string(x+2) + mustRecapture(true, x+2, y-2, tempBoard);
-                }
-            }
-            if(y < 6) { //down
-                if(std::tolower(tempBoard[y+1][x+1]) == player && tempBoard[y+2][x+2] == 'v') {
-                    tempBoard[y+1][x+1] = 'v';
-                    tempBoard[y+2][x+2] = y == 5 ? std::toupper(tempBoard[y][x]) : tempBoard[y][x];
-                    tempBoard[y][x] = 'v';
-
-                    return 'v' + std::to_string(y) + std::to_string(x) + 'v' + std::to_string(y+1)
-                            + std::to_string(x+1) + tempBoard[y+2][x+2] + std::to_string(y+2) + std::to_string(x+2)
-                            + mustRecapture(true, x+2, y+2, tempBoard);
-                }
-            }
-        }
-    }
-    return "";
-}
 
 bool isPlayerMoveValid(int x1, int y1, int x2, int y2) {
     if (std::tolower(board[y1][x1]) == player && board[y2][x2] == 'v' &&
@@ -391,8 +285,175 @@ bool isPlayerMoveValid(int x1, int y1, int x2, int y2) {
     return false;
 }
 
+//Everything makes logical sense, just make sure you create a new node each time you uncover a recapture.
+bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], struct node* parent, bool update) {
+    bool jumped = false;
+    char (*tempBoard2)[8][8] = tempBoard;
+
+    if(update) {
+        char tempBoard1[8][8];
+        updateBoard(tempBoard1, parent);
+        tempBoard2 = &tempBoard1;
+    }
+
+    if(playerTurn) {
+        if(x > 1) { //left
+            if(y > 1) { //up
+                if(std::tolower((*tempBoard2)[y-1][x-1]) == comp && (*tempBoard2)[y-2][x-2] == 'v') {
+                    if(!parent)
+                        return true;
+                    jumped = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
+                                     + 'v' + std::to_string(y-1) + std::to_string(x-1);
+
+                    if(y == 2 && std::islower((*tempBoard2)[y][x]))
+                        newnode -> descr += std::to_string(std::toupper(player)) + std::to_string(y-2) + std::to_string(x-2);
+                    else {
+                        newnode -> descr += (*tempBoard2)[y][x] + std::to_string(y-2) + std::to_string(x-2);
+                        mustJumpRecapture(playerTurn, x-2, y-2, tempBoard2, newnode, true);
+                    }
+                }
+            }
+            if(y < 6) { //down
+                if((*tempBoard2)[y][x] == std::toupper(player) && std::tolower((*tempBoard2)[y+1][x-1]) == comp && (*tempBoard2)[y+2][x-2] == 'v') {
+                    if(!parent)
+                        return true;
+                    jumped = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
+                                     + 'v' + std::to_string(y+1) + std::to_string(x-1)
+                                     + tempBoard2[y][x] + std::to_string(y+2) + std::to_string(x-2);
+                    mustJumpRecapture(playerTurn, x-2, y+2, tempBoard2, newnode, true);
+                }
+            }
+        }
+        if(x < 6) { //right
+            if(y > 1) { //up
+                if(std::tolower((*tempBoard2)[y-1][x+1]) == comp && (*tempBoard2)[y-2][x+2] == 'v') {
+                    if(!parent)
+                        return true;
+                    jumped = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
+                                     + 'v' + std::to_string(y-1) + std::to_string(x+1);
+
+                    if(y == 2 && std::islower((*tempBoard2)[y][x]))
+                        newnode -> descr += std::to_string(std::toupper(player)) + std::to_string(y-2) + std::to_string(x+2);
+                    else {
+                        newnode -> descr += (*tempBoard2)[y][x] + std::to_string(y-2) + std::to_string(x+2);
+                        mustJumpRecapture(playerTurn, x+2, y-2, tempBoard2, newnode, true);
+                    }
+                }
+            }
+            if(y < 6) { //down
+                if((*tempBoard2)[y][x] == std::toupper(player) && std::tolower((*tempBoard2)[y+1][x+1]) == comp && (*tempBoard2)[y+2][x+2] == 'v') {
+                    if(!parent)
+                        return true;
+                    jumped = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
+                                     + 'v' + std::to_string(y+1) + std::to_string(x+1)
+                                     + (*tempBoard2)[y][x] + std::to_string(y+2) + std::to_string(x+2);
+                    mustJumpRecapture(playerTurn, x+2, y+2, tempBoard2, newnode, true);
+                }
+            }
+        }
+    }
+    else {
+        if(x > 1) { //left
+            if(y > 1) { //up
+                if((*tempBoard2)[y][x] == std::toupper(comp) && (*tempBoard2)[y-1][x-1] == player && (*tempBoard2)[y-2][x-2] == 'v') {
+                    jumped = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
+                                     + 'v' + std::to_string(y-1) + std::to_string(x-1)
+                                     + (*tempBoard2)[y][x] + std::to_string(y-2) + std::to_string(x-2);
+                    mustJumpRecapture(playerTurn, x-2, y-2, tempBoard2, newnode, true);
+                }
+            }
+            if(y < 6) { //down
+                if(std::tolower((*tempBoard2)[y+1][x-1]) == player && (*tempBoard2)[y+2][x-2] == 'v') {
+                    jumped = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
+                                     + 'v' + std::to_string(y+1) + std::to_string(x-1);
+
+                    if(y == 5 && std::islower((*tempBoard2)[y][x]))
+                        newnode -> descr += std::to_string(std::toupper(comp)) + std::to_string(y+2) + std::to_string(x-2);
+                    else {
+                        newnode -> descr += (*tempBoard2)[y][x] + std::to_string(y+2) + std::to_string(x-2);
+                        mustJumpRecapture(playerTurn, x-2, y+2, tempBoard2, newnode, true);
+                    }
+                }
+            }
+        }
+        if(x < 6) { //right
+            if(y > 1) { //up
+                if((*tempBoard2)[y][x] == std::toupper(comp) && (*tempBoard2)[y-1][x+1] == player && (*tempBoard2)[y-2][x+2] == 'v') {
+                    jumped = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
+                                     + 'v' + std::to_string(y-1) + std::to_string(x+1)
+                                     + (*tempBoard2)[y][x] + std::to_string(y-2) + std::to_string(x+2);
+                    mustJumpRecapture(playerTurn, x+2, y-2, tempBoard2, newnode, true);
+                }
+            }
+            if(y < 6) { //down
+                if(std::tolower((*tempBoard2)[y+1][x+1]) == player && (*tempBoard2)[y+2][x+2] == 'v') {
+                    jumped = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
+                                     + 'v' + std::to_string(y+1) + std::to_string(x+1);
+
+                    if(y == 5 && std::islower((*tempBoard2)[y][x]))
+                        newnode -> descr += std::to_string(std::toupper(comp)) + std::to_string(y+2) + std::to_string(x+2);
+                    else {
+                        newnode -> descr += (*tempBoard2)[y][x] + std::to_string(y+2) + std::to_string(x+2);
+                        mustJumpRecapture(playerTurn, x+2, y+2, tempBoard2, newnode, true);
+                    }
+                }
+            }
+        }
+    }
+    return jumped;
+}
+
 void smartMove() {
-    struct node head;
+    struct node* head;
+    head = new struct node;
 
     if (1/*!mustJump(false)*/) { //implement mustJump
         std::vector<int> possibleMoves;
@@ -425,134 +486,16 @@ void smartMove() {
     return;
 }
 
-//Purpose is to update the parent node reference based on whether or not jumps must be made.
-//mustrecapture is theoretically fully functional.
+void updateBoard(char theBoard[8][8], struct node* config) {
+    for(int i = 0; i < 8; ++i)
+        for(int j = 0; j < 8; ++j)
+            theBoard[i][j] = board[i][j];
 
-bool mustJump(struct node& parent, char tempBoard[8][8], bool playerTurn) {
-    bool mustjump = false;
-    if(playerTurn) {
-        for(int i = 0; i < 8; ++i)
-            for(int j = 0; j < 8; ++j)
-                if (tempBoard[i][j] == 'v') {
-                    if(j > 1) { //right
-                        if(i < 6) { //up
-                            if(std::tolower(tempBoard[i+1][j-1]) == comp && std::tolower(tempBoard[i+2][j-2]) == player) {
-                                mustjump = true;
-                                struct node * newnode;
-                                newnode = new struct node;
-                                parent.children.push_back(newnode);
-                                newnode -> parent = &parent;
-                                newnode -> descr = parent.descr;
-                                newnode -> descr += !i ? std::toupper(tempBoard[i+2][j-2]) : tempBoard[i+2][j-2];
-                                newnode -> descr += std::to_string(i) + std::to_string(j)
-                                                + 'v' + std::to_string(i+1) + std::to_string(j-1)
-                                                + 'v' + std::to_string(i+2) + std::to_string(j-2)
-                                                + mustRecapture(true, j, i, );
-                            }
-                        }
-                        if(i > 1) { //down
-                            if(std::tolower(tempBoard[i-1][j-1]) == comp && tempBoard[i-2][j-2] == std::toupper(player)) {
-                                mustjump = true;
-                                struct node * newnode;
-                                newnode = new struct node;
-                                parent.children.push_back(newnode);
-                                newnode->parent = &parent;
-                                newnode -> descr = parent.descr;
-                                newnode -> descr += !i ? std::toupper(player) : player;
-                                newnode -> descr += std::to_string(i) + std::to_string(j)
-                                                + 'v' + std::to_string(i-1) + std::to_string(j-1)
-                                                + 'v' + std::to_string(i-2) + std::to_string(j-2);
-                            }
-                        }
-                    }
-                    if(j < 6) { //left
-                        if(i < 6) { //up
-                            if(std::tolower(tempBoard[i+1][j+1]) == comp && std::tolower(tempBoard[i+2][j+2]) == player) {
-                                mustjump = true;
-                                struct node * newnode;
-                                newnode = new struct node;
-                                parent.children.push_back(newnode);
-                                newnode->parent = &parent;
-                                newnode -> descr = parent.descr;
-                                newnode -> descr += !i ? std::toupper(player) : player;
-                                newnode -> descr += std::to_string(i) + std::to_string(j)
-                                                + 'v' + std::to_string(i+1) + std::to_string(j+1)
-                                                + 'v' + std::to_string(i+2) + std::to_string(j+2);
-                            }
-                        }
-                        if(i > 1) { //down
-                            if(std::tolower(tempBoard[i-1][j+1]) == comp && tempBoard[i-2][j+2] == std::toupper(player)) {
-                                mustjump = true;
-                                struct node * newnode;
-                                newnode = new struct node;
-                                parent.children.push_back(newnode);
-                                newnode->parent = &parent;
-                                newnode -> descr = parent.descr;
-                                newnode -> descr += !i ? std::toupper(player) : player;
-                                newnode -> descr += std::to_string(i) + std::to_string(j)
-                                                + 'v' + std::to_string(i-1) + std::to_string(j+1)
-                                                + 'v' + std::to_string(i-2) + std::to_string(j+2);
-                            }
-                        }
-                    }
-                }
-    }
-
-    else {
-        for(int i = 0; i < 8; ++i)
-            for(int j = 0; j < 8; ++j)
-                if(std::tolower(board[i][j]) == comp) {
-                    if(j > 1) { //left
-                        if(i < 6) { //down
-                            if(std::tolower(board[i+1][j-1]) == player && board[i+2][j-2] == 'v') {
-                                board[i+1][j-1] = 'v';
-                                if (i == 5) {
-                                    board[i+2][j-2] = std::toupper(comp);
-                                    board[i][j] = 'v';
-                                    return true;
-                                }
-                                board[i+2][j-2] = board[i][j];
-                                board[i][j] = 'v';
-                                mustRecapture(false, j-2, i+2);
-                                return true;
-                            }
-                        }
-                        if(i > 1 && board[i][j] == std::toupper(comp)) { //up
-                            if(std::tolower(board[i-1][j-1]) == player && board[i-2][j-2] == 'v') {
-                                board[i-1][j-1] = 'v';
-                                board[i-2][j-2] = board[i][j];
-                                board[i][j] = 'v';
-                                mustRecapture(false, j-2, i-2);
-                                return true;
-                            }
-                        }
-                    }
-                    if(j < 6) { //right
-                        if(i < 6) { //down
-                            if(std::tolower(board[i+1][j+1]) == player && board[i+2][j+2] == 'v') {
-                                board[i+1][j+1] = 'v';
-                                if (i == 5) {
-                                    board[i+2][j+2] = std::toupper(comp);
-                                    board[i][j] = 'v';
-                                    return true;
-                                }
-                                board[i+2][j+2] = board[i][j];
-                                board[i][j] = 'v';
-                                mustRecapture(false, j+2, i+2);
-                                return true;
-                            }
-                        }
-                        if(i > 1 && board[i][j] == std::toupper(comp)) { //up
-                            if(std::tolower(board[i-1][j+1]) == player && board[i-2][j+2] == 'v') {
-                                board[i-1][j+1] = 'v';
-                                board[i-2][j+2] = board[i][j];
-                                board[i][j] = 'v';
-                                mustRecapture(false, j+2, i-2);
-                                return true;
-                            }
-                        }
-                    }
-                }
-    }
-    return false;
+    if(config)
+        for (unsigned i = 0; i < config -> descr.length(); i += 3) {
+            int row = config -> descr[i+1] - '0';
+            int col = config -> descr[i+2] - '0';
+            theBoard[row][col] = config -> descr[i];
+        }
+    return;
 }
