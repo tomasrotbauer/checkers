@@ -5,6 +5,8 @@
 #include <vector>
 #include <string>
 
+const int DEPTH = 6;
+
 //Global variable declarations
 sf::Sprite wht, blk, Wht, Blk, bgnd;
 sf::RectangleShape rectangle(sf::Vector2f(112, 112));
@@ -13,10 +15,13 @@ static char board[8][8];
 static char player, comp;
 
 struct node {
+    node() : score(42), parent(nullptr){}
+
     std::string descr;
     int score;
     std::vector<struct node *> children;
     struct node * parent;
+    bool playerTurn;
     };
 
 //Function prototypes
@@ -24,9 +29,13 @@ void drawPieces();
 int indexFromCoordinate(int coord);
 bool mustPlayerJump();
 bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], struct node* parent, bool update);
+bool regularMove(bool playerTurn, int x, int y, const char tempBoard[8][8], struct node* parent);
 bool isPlayerMoveValid(int x1, int y1, int x2, int y2);
 void smartMove();
 void updateBoard(char theBoard[8][8], struct node* config);
+void getTreeLeaves(struct node * parent, std::vector<struct node *>* leaves);
+void computeScores(std::vector<struct node *> &current, struct node * head);
+void cleanUp(struct node * head);
 
 int main() {
     sf::Texture background, start, white, black, White, Black;
@@ -168,7 +177,7 @@ int main() {
 
                 if (isPlayerMoveValid(x,y,x1,y1)) {
                     if (y1 == 0)
-                        board[y1][x1] = std::toupper(player);
+                        board[y1][x1] = (char)std::toupper(player);
                     else
                         board[y1][x1] = board[y][x];
                     board[y][x] = 'v';
@@ -251,7 +260,7 @@ bool mustPlayerJump() {
                             return true;
                     }
                     if(i > 1) { //down
-                        if(std::tolower(board[i-1][j-1]) == comp && board[i-2][j-2] == std::toupper(player))
+                        if(std::tolower(board[i-1][j-1]) == comp && board[i-2][j-2] == (char)std::toupper(player))
                             return true;
                     }
                 }
@@ -261,7 +270,7 @@ bool mustPlayerJump() {
                             return true;
                     }
                     if(i > 1) { //down
-                        if(std::tolower(board[i-1][j+1]) == comp && board[i-2][j+2] == std::toupper(player))
+                        if(std::tolower(board[i-1][j+1]) == comp && board[i-2][j+2] == (char)std::toupper(player))
                             return true;
                     }
                 }
@@ -307,15 +316,18 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                     newnode = new struct node;
                     parent -> children.push_back(newnode);
                     newnode -> parent = parent;
+                    newnode -> playerTurn = !playerTurn;
                     newnode -> descr = parent -> descr;
                     newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
                                      + 'v' + std::to_string(y-1) + std::to_string(x-1);
 
                     if(y == 2 && std::islower((*tempBoard2)[y][x]))
-                        newnode -> descr += std::to_string(std::toupper(player)) + std::to_string(y-2) + std::to_string(x-2);
+                        newnode -> descr += (char)std::toupper(player) + std::to_string(y-2) + std::to_string(x-2);
+
                     else {
-                        newnode -> descr += (*tempBoard2)[y][x] + std::to_string(y-2) + std::to_string(x-2);
-                        mustJumpRecapture(playerTurn, x-2, y-2, tempBoard2, newnode, true);
+                        newnode -> descr += (char)(*tempBoard2)[y][x] + std::to_string(y-2) + std::to_string(x-2);
+                        if(mustJumpRecapture(playerTurn, x-2, y-2, tempBoard2, newnode, true))
+                            newnode -> playerTurn = playerTurn;
                     }
                 }
             }
@@ -331,8 +343,12 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                     newnode -> descr = parent -> descr;
                     newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
                                      + 'v' + std::to_string(y+1) + std::to_string(x-1)
-                                     + tempBoard2[y][x] + std::to_string(y+2) + std::to_string(x-2);
-                    mustJumpRecapture(playerTurn, x-2, y+2, tempBoard2, newnode, true);
+                                     + (char)(*tempBoard2)[y][x] + std::to_string(y+2) + std::to_string(x-2);
+
+                    if(mustJumpRecapture(playerTurn, x-2, y+2, tempBoard2, newnode, true))
+                        newnode -> playerTurn = playerTurn;
+                    else
+                        newnode -> playerTurn = !playerTurn;
                 }
             }
         }
@@ -346,15 +362,17 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                     newnode = new struct node;
                     parent -> children.push_back(newnode);
                     newnode -> parent = parent;
+                    newnode -> playerTurn = !playerTurn;
                     newnode -> descr = parent -> descr;
                     newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
                                      + 'v' + std::to_string(y-1) + std::to_string(x+1);
 
                     if(y == 2 && std::islower((*tempBoard2)[y][x]))
-                        newnode -> descr += std::to_string(std::toupper(player)) + std::to_string(y-2) + std::to_string(x+2);
+                        newnode -> descr += (char)std::toupper(player) + std::to_string(y-2) + std::to_string(x+2);
                     else {
-                        newnode -> descr += (*tempBoard2)[y][x] + std::to_string(y-2) + std::to_string(x+2);
-                        mustJumpRecapture(playerTurn, x+2, y-2, tempBoard2, newnode, true);
+                        newnode -> descr += (char)(*tempBoard2)[y][x] + std::to_string(y-2) + std::to_string(x+2);
+                        if(mustJumpRecapture(playerTurn, x+2, y-2, tempBoard2, newnode, true))
+                            newnode -> playerTurn = playerTurn;
                     }
                 }
             }
@@ -370,8 +388,12 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                     newnode -> descr = parent -> descr;
                     newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
                                      + 'v' + std::to_string(y+1) + std::to_string(x+1)
-                                     + (*tempBoard2)[y][x] + std::to_string(y+2) + std::to_string(x+2);
-                    mustJumpRecapture(playerTurn, x+2, y+2, tempBoard2, newnode, true);
+                                     + (char)(*tempBoard2)[y][x] + std::to_string(y+2) + std::to_string(x+2);
+
+                    if(mustJumpRecapture(playerTurn, x+2, y+2, tempBoard2, newnode, true))
+                        newnode -> playerTurn = playerTurn;
+                    else
+                        newnode -> playerTurn = !playerTurn;
                 }
             }
         }
@@ -388,8 +410,12 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                     newnode -> descr = parent -> descr;
                     newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
                                      + 'v' + std::to_string(y-1) + std::to_string(x-1)
-                                     + (*tempBoard2)[y][x] + std::to_string(y-2) + std::to_string(x-2);
-                    mustJumpRecapture(playerTurn, x-2, y-2, tempBoard2, newnode, true);
+                                     + (char)std::toupper(comp) + std::to_string(y-2) + std::to_string(x-2);
+
+                    if(mustJumpRecapture(playerTurn, x-2, y-2, tempBoard2, newnode, true))
+                        newnode -> playerTurn = playerTurn;
+                    else
+                        newnode -> playerTurn = !playerTurn;
                 }
             }
             if(y < 6) { //down
@@ -399,15 +425,17 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                     newnode = new struct node;
                     parent -> children.push_back(newnode);
                     newnode -> parent = parent;
+                    newnode -> playerTurn = !playerTurn;
                     newnode -> descr = parent -> descr;
                     newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
                                      + 'v' + std::to_string(y+1) + std::to_string(x-1);
 
                     if(y == 5 && std::islower((*tempBoard2)[y][x]))
-                        newnode -> descr += std::to_string(std::toupper(comp)) + std::to_string(y+2) + std::to_string(x-2);
+                        newnode -> descr += (char)std::toupper(comp) + std::to_string(y+2) + std::to_string(x-2);
                     else {
-                        newnode -> descr += (*tempBoard2)[y][x] + std::to_string(y+2) + std::to_string(x-2);
-                        mustJumpRecapture(playerTurn, x-2, y+2, tempBoard2, newnode, true);
+                        newnode -> descr += (char)(*tempBoard2)[y][x] + std::to_string(y+2) + std::to_string(x-2);
+                        if(mustJumpRecapture(playerTurn, x-2, y+2, tempBoard2, newnode, true))
+                            newnode -> playerTurn = playerTurn;
                     }
                 }
             }
@@ -423,8 +451,12 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                     newnode -> descr = parent -> descr;
                     newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
                                      + 'v' + std::to_string(y-1) + std::to_string(x+1)
-                                     + (*tempBoard2)[y][x] + std::to_string(y-2) + std::to_string(x+2);
-                    mustJumpRecapture(playerTurn, x+2, y-2, tempBoard2, newnode, true);
+                                     + (char)(*tempBoard2)[y][x] + std::to_string(y-2) + std::to_string(x+2);
+
+                    if(mustJumpRecapture(playerTurn, x+2, y-2, tempBoard2, newnode, true))
+                        newnode -> playerTurn = playerTurn;
+                    else
+                        newnode -> playerTurn = !playerTurn;
                 }
             }
             if(y < 6) { //down
@@ -434,15 +466,17 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                     newnode = new struct node;
                     parent -> children.push_back(newnode);
                     newnode -> parent = parent;
+                    newnode -> playerTurn = !playerTurn;
                     newnode -> descr = parent -> descr;
                     newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
                                      + 'v' + std::to_string(y+1) + std::to_string(x+1);
 
                     if(y == 5 && std::islower((*tempBoard2)[y][x]))
-                        newnode -> descr += std::to_string(std::toupper(comp)) + std::to_string(y+2) + std::to_string(x+2);
+                        newnode -> descr += (char)std::toupper(comp) + std::to_string(y+2) + std::to_string(x+2);
                     else {
-                        newnode -> descr += (*tempBoard2)[y][x] + std::to_string(y+2) + std::to_string(x+2);
-                        mustJumpRecapture(playerTurn, x+2, y+2, tempBoard2, newnode, true);
+                        newnode -> descr += (char)(*tempBoard2)[y][x] + std::to_string(y+2) + std::to_string(x+2);
+                        if(mustJumpRecapture(playerTurn, x+2, y+2, tempBoard2, newnode, true))
+                            newnode -> playerTurn = playerTurn;
                     }
                 }
             }
@@ -451,38 +485,208 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
     return jumped;
 }
 
+bool regularMove(bool playerTurn, int x, int y, const char tempBoard[8][8], struct node* parent) {
+    bool moved = false;
+
+    if(playerTurn) {
+        if(x > 0) { //left
+            if(y > 0) { //up
+                if(tempBoard[y-1][x-1] == 'v') {
+                    moved = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> playerTurn = !playerTurn;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x);
+
+                    if(y == 1 && std::islower(tempBoard[y][x]))
+                        newnode -> descr += (char)std::toupper(player) + std::to_string(y-1) + std::to_string(x-1);
+                    else
+                        newnode -> descr += (char)tempBoard[y][x] + std::to_string(y-1) + std::to_string(x-1);
+                }
+            }
+            if(y < 7) { //down
+                if(tempBoard[y][x] == (char)std::toupper(player) && tempBoard[y+1][x-1] == 'v') {
+                    moved = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> playerTurn = !playerTurn;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
+                                     + (char)tempBoard[y][x] + std::to_string(y+1) + std::to_string(x-1);
+                }
+            }
+        }
+        if(x < 7) { //right
+            if(y > 0) { //up
+                if(tempBoard[y-1][x+1] == 'v') {
+                    moved = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> playerTurn = !playerTurn;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x);
+
+                    if(y == 1 && std::islower(tempBoard[y][x]))
+                        newnode -> descr += (char)std::toupper(player) + std::to_string(y-1) + std::to_string(x+1);
+                    else
+                        newnode -> descr += (char)tempBoard[y][x] + std::to_string(y-1) + std::to_string(x+1);
+                }
+            }
+            if(y < 7) { //down
+                if(tempBoard[y][x] == std::toupper(player) && tempBoard[y+1][x+1] == 'v') {
+                    moved = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> playerTurn = !playerTurn;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
+                                     + (char)tempBoard[y][x] + std::to_string(y+1) + std::to_string(x+1);
+                }
+            }
+        }
+    }
+    else {
+        if(x > 0) { //left
+            if(y > 0) { //up
+                if(tempBoard[y][x] == std::toupper(comp) && tempBoard[y-1][x-1] == 'v') {
+                    moved = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> playerTurn = !playerTurn;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
+                                     + (char)tempBoard[y][x] + std::to_string(y-1) + std::to_string(x-1);
+                }
+            }
+            if(y < 7) { //down
+                if(tempBoard[y+1][x-1] == 'v') {
+                    moved = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> playerTurn = !playerTurn;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x);
+
+                    if(y == 6 && std::islower(tempBoard[y][x]))
+                        newnode -> descr += (char)std::toupper(comp) + std::to_string(y+1) + std::to_string(x-1);
+                    else
+                        newnode -> descr += (char)tempBoard[y][x] + std::to_string(y+1) + std::to_string(x-1);
+                }
+            }
+        }
+        if(x < 7) { //right
+            if(y > 0) { //up
+                if(tempBoard[y][x] == std::toupper(comp) && tempBoard[y-1][x+1] == 'v') {
+                    moved = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> playerTurn = !playerTurn;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x)
+                                     + (char)tempBoard[y][x] + std::to_string(y-1) + std::to_string(x+1);
+                }
+            }
+            if(y < 7) { //down
+                if(tempBoard[y+1][x+1] == 'v') {
+                    moved = true;
+                    struct node * newnode;
+                    newnode = new struct node;
+                    parent -> children.push_back(newnode);
+                    newnode -> parent = parent;
+                    newnode -> playerTurn = !playerTurn;
+                    newnode -> descr = parent -> descr;
+                    newnode -> descr += 'v' + std::to_string(y) + std::to_string(x);
+
+                    if(y == 6 && std::islower(tempBoard[y][x]))
+                        newnode -> descr += (char)std::toupper(comp) + std::to_string(y+1) + std::to_string(x+1);
+                    else
+                        newnode -> descr += (char)tempBoard[y][x] + std::to_string(y+1) + std::to_string(x+1);
+                }
+            }
+        }
+    }
+    return moved;
+}
+
 void smartMove() {
     struct node* head;
     head = new struct node;
+    head -> playerTurn = false;
 
-    if (1/*!mustJump(false)*/) { //implement mustJump
-        std::vector<int> possibleMoves;
-        for (int i = 0; i < 8; ++i)
-            for (int j = 0; j < 8; ++j)
-                if(std::tolower(board[i][j]) == comp) {
-                    if(j > 0 && i > 0) { //left, up
-                        if(std::isupper(board[i][j]) && board[i-1][j-1] == 'v') {
-                            ;
-                        }
-                    }
-                    if(j > 0 && i < 7) {
-                        if(board[i+1][j-1] == 'v') { //left, down
-                            ;
-                        }
-                    }
-                    if(j < 7 && i > 0) { //right, up
-                        if(std::isupper(board[i][j]) && board[i-1][j+1] == 'v') {
-                            ;
-                        }
-                    }
-                    if(j < 7 && i < 7) { //right, down
-                        if(board[i+1][j+1] == 'v') {
-                            ;
-                        }
-                    }
+    char tempBoard[8][8];
+    bool playerTurn = false, jump, moved;
+
+    std::vector<struct node *> current, next;
+    current.push_back(head);
+
+    for(int d = 0; d < DEPTH; ++d) {
+        for(std::vector<struct node *>::iterator it = std::begin(current); it != std::end(current); ++it) {
+            updateBoard(tempBoard, *it);
+            jump = false;
+            moved = false;
+
+            for(int y = 0; y < 8; ++y)
+                for(int x = 0; x < 8; ++x) {
+                    if (!((playerTurn && std::tolower(tempBoard[y][x]) == player) || (!playerTurn && std::tolower(tempBoard[y][x]) == comp)))
+                        continue;
+                    if (mustJumpRecapture(playerTurn, x, y, &tempBoard, *it, false))
+                        jump = true;
                 }
 
+            if(jump) //append children into next vector
+                getTreeLeaves(*it, &next);
+
+            else {
+                for(int y = 0; y < 8; ++y)
+                    for(int x = 0; x < 8; ++x) {
+                        if (!((playerTurn && std::tolower(tempBoard[y][x]) == player) || (!playerTurn && std::tolower(tempBoard[y][x]) == comp)))
+                            continue;
+                        if(regularMove(playerTurn, x, y, tempBoard, *it))
+                            moved = true;
+                    }
+
+                if(moved)
+                    next.insert(next.end(), (*it) -> children.begin(), (*it) -> children.end());
+            }
+
+        }
+        current.clear();
+        current = next;
+        next.clear();
+        playerTurn = !playerTurn;
     }
+
+    computeScores(current, head);
+    for(std::vector<struct node *>::iterator it = std::begin(head -> children); it != std::end(head -> children); ++it) {
+        if(head -> score == (*it) -> score) {
+            while(!((*it) -> playerTurn))
+                for(std::vector<struct node *>::iterator iter = std::begin((*it) -> children); iter != std::end((*it) -> children); ++iter)
+                    if ((*iter) -> score == head -> score) {
+                        (*it) = (*iter);
+                        break;
+                }
+            updateBoard(board, *it);
+            break;
+        }
+    }
+
+    cleanUp(head);
+
     return;
 }
 
@@ -495,7 +699,80 @@ void updateBoard(char theBoard[8][8], struct node* config) {
         for (unsigned i = 0; i < config -> descr.length(); i += 3) {
             int row = config -> descr[i+1] - '0';
             int col = config -> descr[i+2] - '0';
+            if(theBoard[row][col] == 'e')
+                std::cout<<config -> descr;
             theBoard[row][col] = config -> descr[i];
         }
+    return;
+}
+
+void getTreeLeaves(struct node * parent, std::vector<struct node *>* leaves) {
+    if(parent -> children.empty()) {
+        leaves -> push_back(parent);
+        return;
+    }
+    for(std::vector<struct node *>::iterator it = std::begin(parent -> children); it != std::end(parent -> children); ++it)
+        getTreeLeaves(*it, leaves);
+
+    return;
+}
+
+void computeScores(std::vector<struct node *> &current, struct node * head) {
+    std::vector<struct node *> next;
+    char tempBoard[8][8];
+    int score;
+    for(std::vector<struct node *>::iterator it = std::begin(current); it != std::end(current); ++it) {
+        updateBoard(tempBoard, (*it));
+        score = 0;
+        for(int i = 0; i < 8; ++i)
+            for (int j = 0; j < 8; ++j) {
+                if(tempBoard[i][j] == player)
+                    score -= 1;
+                else if(tempBoard[i][j] == (char)std::toupper(player))
+                    score -= 3;
+                else if(tempBoard[i][j] == comp)
+                    score += 1;
+                else if(tempBoard[i][j] == (char)std::toupper(comp))
+                    score += 3;
+                else;
+            }
+        (*it) -> score = score;
+    }
+    int i = 0;
+    while(!current.empty()) {
+        i = 0;
+        for(std::vector<struct node *>::iterator it = std::begin(current); it != std::end(current); ++it) {
+            //std::cout << i << ' ' << current.size() << ' ' << next.size() << ' ' << ((*it) == head) << std::endl;
+            ++i;
+            if ((*it) -> parent) {
+                if ((*it) -> parent -> score == 42) {
+                    (*it) -> parent -> score = (*it) -> score;
+                    next.emplace_back((*it) -> parent);
+                }
+
+                else if ((*it) -> parent -> playerTurn && (*it) -> parent -> score > (*it) -> score)
+                    (*it) -> parent -> score = (*it) -> score;
+
+                else if (!((*it) -> parent -> playerTurn) && (*it) -> parent -> score < (*it) -> score)
+                    (*it) -> parent -> score = (*it) -> score;
+
+            }
+        }
+        current = next;
+        next.clear();
+    }
+    return;
+}
+
+void cleanUp(struct node * head)  {
+    if(head -> children.empty()) {
+        delete head;
+        return;
+    }
+
+    for(std::vector<struct node *>::iterator it = std::begin(head -> children); it != std::end(head -> children); ++it)
+        cleanUp(*it);
+
+    delete head;
     return;
 }
