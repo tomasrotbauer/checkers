@@ -4,8 +4,9 @@
 #include <windows.h>
 #include <vector>
 #include <string>
-
-const int DEPTH = 6;
+#include <stdlib.h>
+#include <random>
+#include <iterator>
 
 //Global variable declarations
 sf::Sprite wht, blk, Wht, Blk, bgnd;
@@ -13,9 +14,11 @@ sf::RectangleShape rectangle(sf::Vector2f(112, 112));
 sf::RenderWindow window(sf::VideoMode(896, 896), "Tomas' Unbeatable Checkers Game");
 static char board[8][8];
 static char player, comp;
+bool selected = false;
+sf::Font font;
 
 struct node {
-    node() : score(42), parent(nullptr){}
+    node() : score(999), parent(nullptr){}
 
     std::string descr;
     int score;
@@ -23,6 +26,20 @@ struct node {
     struct node * parent;
     bool playerTurn;
     };
+
+template<typename Iter, typename RandomGenerator>
+Iter select_randomly(Iter start, Iter end, RandomGenerator& g) {
+    std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
+    std::advance(start, dis(g));
+    return start;
+}
+
+template<typename Iter>
+Iter select_randomly(Iter start, Iter end) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    return select_randomly(start, end, gen);
+}
 
 //Function prototypes
 void drawPieces();
@@ -36,14 +53,14 @@ void updateBoard(char theBoard[8][8], struct node* config);
 void getTreeLeaves(struct node * parent, std::vector<struct node *>* leaves);
 void computeScores(std::vector<struct node *> &current, struct node * head);
 void cleanUp(struct node * head);
+bool gameover();
 
 int main() {
     sf::Texture background, start, white, black, White, Black;
 
-    bool selected = false, draw = true, playerTurn = false, buttonRelease = true;
+    bool draw = true, playerTurn = false, buttonRelease = true;
     char click = 0;
     int x, y, x1, y1;
-    sf::Font font;
 
     if (!white.loadFromFile("checkerwhite.png"))
         return EXIT_FAILURE;
@@ -199,9 +216,15 @@ int main() {
         }
 
         else {
+            gameover();
             smartMove();
             drawPieces();
             playerTurn = true;
+            if(gameover()) {
+                selected = false;
+                Sleep(2000);
+            }
+
         }
     }
 
@@ -401,7 +424,7 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
     else {
         if(x > 1) { //left
             if(y > 1) { //up
-                if((*tempBoard2)[y][x] == std::toupper(comp) && (*tempBoard2)[y-1][x-1] == player && (*tempBoard2)[y-2][x-2] == 'v') {
+                if((*tempBoard2)[y][x] == std::toupper(comp) && std::tolower((*tempBoard2)[y-1][x-1]) == player && (*tempBoard2)[y-2][x-2] == 'v') {
                     jumped = true;
                     struct node * newnode;
                     newnode = new struct node;
@@ -442,7 +465,7 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
         }
         if(x < 6) { //right
             if(y > 1) { //up
-                if((*tempBoard2)[y][x] == std::toupper(comp) && (*tempBoard2)[y-1][x+1] == player && (*tempBoard2)[y-2][x+2] == 'v') {
+                if((*tempBoard2)[y][x] == std::toupper(comp) && std::tolower((*tempBoard2)[y-1][x+1]) == player && (*tempBoard2)[y-2][x+2] == 'v') {
                     jumped = true;
                     struct node * newnode;
                     newnode = new struct node;
@@ -634,7 +657,9 @@ void smartMove() {
     std::vector<struct node *> current, next;
     current.push_back(head);
 
-    for(int d = 0; d < DEPTH; ++d) {
+
+    //std::cout<<"-----------------------"<<std::endl;
+    for (int d = 0; d < 6; ++d) {
         for(std::vector<struct node *>::iterator it = std::begin(current); it != std::end(current); ++it) {
             updateBoard(tempBoard, *it);
             jump = false;
@@ -666,25 +691,43 @@ void smartMove() {
 
         }
         current.clear();
+        if(next.empty())
+            break;
         current = next;
         next.clear();
         playerTurn = !playerTurn;
     }
 
+    struct node * ptr;
     computeScores(current, head);
+    int max_score = head -> children.at(0) -> score;
+    std::cout<<"children: ";
     for(std::vector<struct node *>::iterator it = std::begin(head -> children); it != std::end(head -> children); ++it) {
-        if(head -> score == (*it) -> score) {
-            while(!((*it) -> playerTurn))
+        std::cout<<(*it)->score<<' ';
+        if((*it) -> score >= max_score) {
+            if((*it) -> score > max_score)
+                next.clear();
+            max_score = (*it) -> score;
+            ptr = (*it);
+            while(!(ptr -> playerTurn))
                 for(std::vector<struct node *>::iterator iter = std::begin((*it) -> children); iter != std::end((*it) -> children); ++iter)
-                    if ((*iter) -> score == head -> score) {
-                        (*it) = (*iter);
+                    if ((*iter) -> score == max_score) {
+                        ptr = (*iter);
                         break;
                 }
-            updateBoard(board, *it);
-            break;
+            next.push_back(ptr);
         }
     }
-
+    std::cout<<"head: ";
+    std::cout<<head->score<<" # of children found: "<<next.size()<< " score of child selected: ";
+    ptr = *select_randomly(next.begin(), next.end());
+    std::cout<< ptr -> score<<std::endl;
+//    if(ptr -> score == 100) {
+//        selected = false;
+//        Sleep(2000);
+//    }
+    updateBoard(board, ptr);
+    next.clear();
     cleanUp(head);
 
     return;
@@ -721,15 +764,21 @@ void computeScores(std::vector<struct node *> &current, struct node * head) {
     std::vector<struct node *> next;
     char tempBoard[8][8];
     int score;
+    bool win = true;
     for(std::vector<struct node *>::iterator it = std::begin(current); it != std::end(current); ++it) {
         updateBoard(tempBoard, (*it));
+        win = true;
         score = 0;
         for(int i = 0; i < 8; ++i)
             for (int j = 0; j < 8; ++j) {
-                if(tempBoard[i][j] == player)
+                if(tempBoard[i][j] == player) {
                     score -= 1;
-                else if(tempBoard[i][j] == (char)std::toupper(player))
+                    win = false;
+                }
+                else if(tempBoard[i][j] == (char)std::toupper(player)) {
                     score -= 3;
+                    win = false;
+                }
                 else if(tempBoard[i][j] == comp)
                     score += 1;
                 else if(tempBoard[i][j] == (char)std::toupper(comp))
@@ -737,17 +786,15 @@ void computeScores(std::vector<struct node *> &current, struct node * head) {
                 else;
             }
         (*it) -> score = score;
+        if(win)
+            (*it) -> score += 500;
     }
-    int i = 0;
     while(!current.empty()) {
-        i = 0;
         for(std::vector<struct node *>::iterator it = std::begin(current); it != std::end(current); ++it) {
-            //std::cout << i << ' ' << current.size() << ' ' << next.size() << ' ' << ((*it) == head) << std::endl;
-            ++i;
             if ((*it) -> parent) {
-                if ((*it) -> parent -> score == 42) {
+                if ((*it) -> parent -> score == 999) {
                     (*it) -> parent -> score = (*it) -> score;
-                    next.emplace_back((*it) -> parent);
+                    next.push_back((*it) -> parent);
                 }
 
                 else if ((*it) -> parent -> playerTurn && (*it) -> parent -> score > (*it) -> score)
@@ -775,4 +822,16 @@ void cleanUp(struct node * head)  {
 
     delete head;
     return;
+}
+
+bool gameover() {
+    bool p_alive = false, c_alive = false;
+    for(int i = 0; i < 8; ++i)
+        for(int j = 0; j < 8; ++j)
+            if(std::tolower(board[i][j]) == player)
+                p_alive = true;
+            else if(std::tolower(board[i][j]) == comp)
+                c_alive = true;
+
+    return !(p_alive && c_alive);
 }
