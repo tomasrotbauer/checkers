@@ -51,9 +51,10 @@ bool isPlayerMoveValid(int x1, int y1, int x2, int y2);
 void smartMove();
 void updateBoard(char theBoard[8][8], struct node* config);
 void getTreeLeaves(struct node * parent, std::vector<struct node *>* leaves);
-void computeScores(std::vector<struct node *> &current, struct node * head);
+void computeScores(struct node * head);
 void cleanUp(struct node * head);
-bool gameover();
+bool gameover(bool playerTurn);
+int find_height(struct node * Node);
 
 int main() {
     sf::Texture background, start, white, black, White, Black;
@@ -155,6 +156,7 @@ int main() {
                         else if(i > 4)
                             board[i][j] = player;  //'w' = white
                         else board[i][j] = 'v'; //'v' = vacant: the tile is available
+
         }
 
         else if(draw) {     //board needs to be updated
@@ -199,7 +201,7 @@ int main() {
                         board[y1][x1] = board[y][x];
                     board[y][x] = 'v';
                     drawPieces();
-                    if (!mustJumpRecapture(true, x1, y1, &board, nullptr, false) || abs(y - y1) == 1) {
+                    if (!mustJumpRecapture(true, x1, y1, &board, nullptr, false) || abs(y - y1) == 1 || !y1) {
                         click = 2;
                         buttonRelease = false;
                         playerTurn = false;
@@ -216,11 +218,11 @@ int main() {
         }
 
         else {
-            gameover();
+            gameover(playerTurn);
             smartMove();
             drawPieces();
             playerTurn = true;
-            if(gameover()) {
+            if(gameover(playerTurn)) {
                 selected = false;
                 Sleep(2000);
             }
@@ -272,7 +274,7 @@ int indexFromCoordinate(int coord) {
     return index;
 }
 
-//This function finds out if there is a jump to be made. It automatically makes the jump if it's the computer's turn
+//This function finds out if there is a jump to be made
 bool mustPlayerJump() {
     for(int i = 0; i < 8; ++i)
         for(int j = 0; j < 8; ++j)
@@ -425,6 +427,8 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
         if(x > 1) { //left
             if(y > 1) { //up
                 if((*tempBoard2)[y][x] == std::toupper(comp) && std::tolower((*tempBoard2)[y-1][x-1]) == player && (*tempBoard2)[y-2][x-2] == 'v') {
+                    if(!parent)
+                        return true;
                     jumped = true;
                     struct node * newnode;
                     newnode = new struct node;
@@ -443,6 +447,8 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
             }
             if(y < 6) { //down
                 if(std::tolower((*tempBoard2)[y+1][x-1]) == player && (*tempBoard2)[y+2][x-2] == 'v') {
+                    if(!parent)
+                        return true;
                     jumped = true;
                     struct node * newnode;
                     newnode = new struct node;
@@ -466,6 +472,8 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
         if(x < 6) { //right
             if(y > 1) { //up
                 if((*tempBoard2)[y][x] == std::toupper(comp) && std::tolower((*tempBoard2)[y-1][x+1]) == player && (*tempBoard2)[y-2][x+2] == 'v') {
+                    if(!parent)
+                        return true;
                     jumped = true;
                     struct node * newnode;
                     newnode = new struct node;
@@ -484,6 +492,8 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
             }
             if(y < 6) { //down
                 if(std::tolower((*tempBoard2)[y+1][x+1]) == player && (*tempBoard2)[y+2][x+2] == 'v') {
+                    if(!parent)
+                        return true;
                     jumped = true;
                     struct node * newnode;
                     newnode = new struct node;
@@ -515,6 +525,8 @@ bool regularMove(bool playerTurn, int x, int y, const char tempBoard[8][8], stru
         if(x > 0) { //left
             if(y > 0) { //up
                 if(tempBoard[y-1][x-1] == 'v') {
+                    if(!parent)
+                        return true;
                     moved = true;
                     struct node * newnode;
                     newnode = new struct node;
@@ -532,6 +544,8 @@ bool regularMove(bool playerTurn, int x, int y, const char tempBoard[8][8], stru
             }
             if(y < 7) { //down
                 if(tempBoard[y][x] == (char)std::toupper(player) && tempBoard[y+1][x-1] == 'v') {
+                    if(!parent)
+                        return true;
                     moved = true;
                     struct node * newnode;
                     newnode = new struct node;
@@ -547,6 +561,8 @@ bool regularMove(bool playerTurn, int x, int y, const char tempBoard[8][8], stru
         if(x < 7) { //right
             if(y > 0) { //up
                 if(tempBoard[y-1][x+1] == 'v') {
+                    if(!parent)
+                        return true;
                     moved = true;
                     struct node * newnode;
                     newnode = new struct node;
@@ -564,6 +580,8 @@ bool regularMove(bool playerTurn, int x, int y, const char tempBoard[8][8], stru
             }
             if(y < 7) { //down
                 if(tempBoard[y][x] == std::toupper(player) && tempBoard[y+1][x+1] == 'v') {
+                    if(!parent)
+                        return true;
                     moved = true;
                     struct node * newnode;
                     newnode = new struct node;
@@ -581,6 +599,8 @@ bool regularMove(bool playerTurn, int x, int y, const char tempBoard[8][8], stru
         if(x > 0) { //left
             if(y > 0) { //up
                 if(tempBoard[y][x] == std::toupper(comp) && tempBoard[y-1][x-1] == 'v') {
+                    if(!parent)
+                        return true;
                     moved = true;
                     struct node * newnode;
                     newnode = new struct node;
@@ -594,6 +614,8 @@ bool regularMove(bool playerTurn, int x, int y, const char tempBoard[8][8], stru
             }
             if(y < 7) { //down
                 if(tempBoard[y+1][x-1] == 'v') {
+                    if(!parent)
+                        return true;
                     moved = true;
                     struct node * newnode;
                     newnode = new struct node;
@@ -613,6 +635,8 @@ bool regularMove(bool playerTurn, int x, int y, const char tempBoard[8][8], stru
         if(x < 7) { //right
             if(y > 0) { //up
                 if(tempBoard[y][x] == std::toupper(comp) && tempBoard[y-1][x+1] == 'v') {
+                    if(!parent)
+                        return true;
                     moved = true;
                     struct node * newnode;
                     newnode = new struct node;
@@ -626,6 +650,8 @@ bool regularMove(bool playerTurn, int x, int y, const char tempBoard[8][8], stru
             }
             if(y < 7) { //down
                 if(tempBoard[y+1][x+1] == 'v') {
+                    if(!parent)
+                        return true;
                     moved = true;
                     struct node * newnode;
                     newnode = new struct node;
@@ -657,8 +683,6 @@ void smartMove() {
     std::vector<struct node *> current, next;
     current.push_back(head);
 
-
-    //std::cout<<"-----------------------"<<std::endl;
     for (int d = 0; d < 6; ++d) {
         for(std::vector<struct node *>::iterator it = std::begin(current); it != std::end(current); ++it) {
             updateBoard(tempBoard, *it);
@@ -690,16 +714,19 @@ void smartMove() {
             }
 
         }
-        current.clear();
         if(next.empty())
             break;
         current = next;
         next.clear();
         playerTurn = !playerTurn;
     }
+    current.clear();
 
     struct node * ptr;
-    computeScores(current, head);
+    computeScores(head);
+    if (head -> children.empty())
+        return;
+
     int max_score = head -> children.at(0) -> score;
     std::cout<<"children: ";
     for(std::vector<struct node *>::iterator it = std::begin(head -> children); it != std::end(head -> children); ++it) {
@@ -710,7 +737,7 @@ void smartMove() {
             max_score = (*it) -> score;
             ptr = (*it);
             while(!(ptr -> playerTurn))
-                for(std::vector<struct node *>::iterator iter = std::begin((*it) -> children); iter != std::end((*it) -> children); ++iter)
+                for(std::vector<struct node *>::iterator iter = std::begin(ptr -> children); iter != std::end(ptr -> children); ++iter)
                     if ((*iter) -> score == max_score) {
                         ptr = (*iter);
                         break;
@@ -718,14 +745,12 @@ void smartMove() {
             next.push_back(ptr);
         }
     }
+    if(next.empty())
+        return;
     std::cout<<"head: ";
     std::cout<<head->score<<" # of children found: "<<next.size()<< " score of child selected: ";
     ptr = *select_randomly(next.begin(), next.end());
     std::cout<< ptr -> score<<std::endl;
-//    if(ptr -> score == 100) {
-//        selected = false;
-//        Sleep(2000);
-//    }
     updateBoard(board, ptr);
     next.clear();
     cleanUp(head);
@@ -760,8 +785,9 @@ void getTreeLeaves(struct node * parent, std::vector<struct node *>* leaves) {
     return;
 }
 
-void computeScores(std::vector<struct node *> &current, struct node * head) {
-    std::vector<struct node *> next;
+void computeScores(struct node * head) {
+    std::vector<struct node *> current, next;
+    getTreeLeaves(head, &current);
     char tempBoard[8][8];
     int score;
     bool win = true;
@@ -786,8 +812,12 @@ void computeScores(std::vector<struct node *> &current, struct node * head) {
                 else;
             }
         (*it) -> score = score;
-        if(win)
-            (*it) -> score += 500;
+        if(win) {
+            int height = find_height(*it);
+            if(!height)//better safe than sorry
+                height = 1;
+            (*it) -> score += (int)(500/height);
+        }
     }
     while(!current.empty()) {
         for(std::vector<struct node *>::iterator it = std::begin(current); it != std::end(current); ++it) {
@@ -824,7 +854,7 @@ void cleanUp(struct node * head)  {
     return;
 }
 
-bool gameover() {
+bool gameover(bool playerTurn) {
     bool p_alive = false, c_alive = false;
     for(int i = 0; i < 8; ++i)
         for(int j = 0; j < 8; ++j)
@@ -833,5 +863,24 @@ bool gameover() {
             else if(std::tolower(board[i][j]) == comp)
                 c_alive = true;
 
-    return !(p_alive && c_alive);
+    if (!(p_alive && c_alive))
+        return true;
+
+    for(int y = 0; y < 8; ++y)
+        for(int x = 0; x < 8; ++x)
+            if ((playerTurn && std::tolower(board[y][x]) == player) || (!playerTurn && std::tolower(board[y][x]) == comp)) {
+                if(mustJumpRecapture(playerTurn, x, y, &board, nullptr, false) || regularMove(playerTurn, x, y, board, nullptr))
+                    return false;
+            }
+
+    return true;
+}
+
+int find_height(struct node * Node) {
+    int height = 0;
+    while(Node -> parent) {
+        Node = Node -> parent;
+        height++;
+    }
+    return height;
 }
