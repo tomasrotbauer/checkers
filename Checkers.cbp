@@ -49,12 +49,6 @@
 		<Linker>
 			<Add directory="C:/TDM-GCC-64/SFML-2.5.1/lib" />
 		</Linker>
-		<Unit filename="ai.cpp">
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="ai.h">
-			<Option target="Release" />
-		</Unit>
 		<Unit filename="main.cpp" />
 		<Unit filename="openal32.dll" />
 		<Unit filename="sfml-audio-2.dll" />
