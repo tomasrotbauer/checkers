@@ -60,8 +60,8 @@ int main() {
     sf::Texture background, start, white, black, White, Black;
 
     bool playerTurn = false, buttonRelease = true;
-    char click = 0;
-    int x, y, x1, y1;
+    int click = 0;
+    int x, y, x1, y1, num_moves = 0;
 
     if (!background.loadFromFile("background.png"))
         return EXIT_FAILURE;
@@ -98,6 +98,8 @@ int main() {
         }
 
         if(!selected) {
+
+            num_moves = 0;
 
             if (!start.loadFromFile("start.png"))
                 return EXIT_FAILURE;
@@ -192,6 +194,7 @@ int main() {
             }
 
             else if (click == 2 && !sf::Mouse::isButtonPressed(sf::Mouse::Left) && !buttonRelease) {
+                num_moves++;
                 click = 0;
                 buttonRelease = true;
             }
@@ -205,14 +208,22 @@ int main() {
             }
             struct node* head;
             head = new struct node;
-            int nodeScore = minimax(head, false, 3, -1000, 1000);
-            std::vector<struct node*> moves;
-            for(std::vector<struct node *>::iterator it = std::begin(head -> children); it != std::end(head -> children); ++it) {
-                if((*it) -> score == nodeScore)
-                    moves.push_back(*it);
-            }
-            struct node* ptr = *select_randomly(moves.begin(), moves.end());
-            updateBoard(board, ptr);
+
+            int depth;
+
+            if(num_moves < 15)
+                depth = 12;
+            else
+                depth = 10;
+
+            int nodeScore = minimax(head, false, depth, -10000, 10000);
+            num_moves++;
+            for(std::vector<struct node *>::iterator it = std::begin(head -> children); it != std::end(head -> children); ++it)
+                if((*it) -> score == nodeScore) {
+                    updateBoard(board, *it);
+                    std::cout<<"chosen: "<<(*it)->score<<std::endl;
+                    break;
+                }
             cleanUp(head);
             drawPieces();
             playerTurn = true;
@@ -237,7 +248,6 @@ void initBoard() {
             else if(i > 4)
                 board[i][j] = player;  //'w' = white
             else board[i][j] = 'v'; //'v' = vacant: the tile is available
-
     window.draw(bgnd);
     drawPieces();
 }
@@ -328,14 +338,18 @@ bool isPlayerMoveValid(int x1, int y1, int x2, int y2) {
     return false;
 }
 
+//During recursion, if more than one jumps are possible, need seperate nodes
+
 bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], struct node* parent, bool update) {
     bool jumped = false;
+    std::string description;
     char (*tempBoard2)[8][8] = tempBoard;
 
     if(update) {
         char tempBoard1[8][8];
         updateBoard(tempBoard1, parent);
         tempBoard2 = &tempBoard1;
+        description = parent -> descr;
     }
 
     if(playerTurn) {
@@ -344,10 +358,17 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                 if(std::tolower((*tempBoard2)[y-1][x-1]) == comp && (*tempBoard2)[y-2][x-2] == 'v') {
                     if(!parent)
                         return true;
-                    jumped = true;
                     struct node * newnode;
-                    if(update)
-                        newnode = parent;
+                    if(update) {
+                        if(!jumped)
+                            newnode = parent;
+                        else {
+                            newnode = new struct node;
+                            newnode -> descr = description;
+                            newnode -> parent = parent -> parent;
+                            parent -> parent -> children.push_back(newnode);
+                        }
+                    }
                     else {
                         newnode = new struct node;
                         parent -> children.push_back(newnode);
@@ -363,16 +384,24 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                         newnode -> descr += (char)(*tempBoard2)[y][x] + std::to_string(y-2) + std::to_string(x-2);
                         mustJumpRecapture(playerTurn, x-2, y-2, tempBoard2, newnode, true);
                     }
+                    jumped = true;
                 }
             }
             if(y < 6) { //down
                 if((*tempBoard2)[y][x] == std::toupper(player) && std::tolower((*tempBoard2)[y+1][x-1]) == comp && (*tempBoard2)[y+2][x-2] == 'v') {
                     if(!parent)
                         return true;
-                    jumped = true;
                     struct node * newnode;
-                    if(update)
-                        newnode = parent;
+                    if(update) {
+                        if(!jumped)
+                            newnode = parent;
+                        else {
+                            newnode = new struct node;
+                            newnode -> descr = description;
+                            newnode -> parent = parent -> parent;
+                            parent -> parent -> children.push_back(newnode);
+                        }
+                    }
                     else {
                         newnode = new struct node;
                         parent -> children.push_back(newnode);
@@ -383,6 +412,7 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                                      + (char)(*tempBoard2)[y][x] + std::to_string(y+2) + std::to_string(x-2);
 
                     mustJumpRecapture(playerTurn, x-2, y+2, tempBoard2, newnode, true);
+                    jumped = true;
                 }
             }
         }
@@ -391,10 +421,17 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                 if(std::tolower((*tempBoard2)[y-1][x+1]) == comp && (*tempBoard2)[y-2][x+2] == 'v') {
                     if(!parent)
                         return true;
-                    jumped = true;
                     struct node * newnode;
-                    if(update)
-                        newnode = parent;
+                    if(update) {
+                        if(!jumped)
+                            newnode = parent;
+                        else {
+                            newnode = new struct node;
+                            newnode -> descr = description;
+                            newnode -> parent = parent -> parent;
+                            parent -> parent -> children.push_back(newnode);
+                        }
+                    }
                     else {
                         newnode = new struct node;
                         parent -> children.push_back(newnode);
@@ -409,16 +446,24 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                         newnode -> descr += (char)(*tempBoard2)[y][x] + std::to_string(y-2) + std::to_string(x+2);
                         mustJumpRecapture(playerTurn, x+2, y-2, tempBoard2, newnode, true);
                     }
+                    jumped = true;
                 }
             }
             if(y < 6) { //down
                 if((*tempBoard2)[y][x] == std::toupper(player) && std::tolower((*tempBoard2)[y+1][x+1]) == comp && (*tempBoard2)[y+2][x+2] == 'v') {
                     if(!parent)
                         return true;
-                    jumped = true;
                     struct node * newnode;
-                    if(update)
-                        newnode = parent;
+                    if(update) {
+                        if(!jumped)
+                            newnode = parent;
+                        else {
+                            newnode = new struct node;
+                            newnode -> descr = description;
+                            newnode -> parent = parent -> parent;
+                            parent -> parent -> children.push_back(newnode);
+                        }
+                    }
                     else {
                         newnode = new struct node;
                         parent -> children.push_back(newnode);
@@ -429,6 +474,7 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                                      + (char)(*tempBoard2)[y][x] + std::to_string(y+2) + std::to_string(x+2);
 
                     mustJumpRecapture(playerTurn, x+2, y+2, tempBoard2, newnode, true);
+                    jumped = true;
                 }
             }
         }
@@ -439,10 +485,17 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                 if((*tempBoard2)[y][x] == std::toupper(comp) && std::tolower((*tempBoard2)[y-1][x-1]) == player && (*tempBoard2)[y-2][x-2] == 'v') {
                     if(!parent)
                         return true;
-                    jumped = true;
                     struct node * newnode;
-                    if(update)
-                        newnode = parent;
+                    if(update) {
+                        if(!jumped)
+                            newnode = parent;
+                        else {
+                            newnode = new struct node;
+                            newnode -> descr = description;
+                            newnode -> parent = parent -> parent;
+                            parent -> parent -> children.push_back(newnode);
+                        }
+                    }
                     else {
                         newnode = new struct node;
                         parent -> children.push_back(newnode);
@@ -453,16 +506,24 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                                      + (char)std::toupper(comp) + std::to_string(y-2) + std::to_string(x-2);
 
                     mustJumpRecapture(playerTurn, x-2, y-2, tempBoard2, newnode, true);
+                    jumped = true;
                 }
             }
             if(y < 6) { //down
                 if(std::tolower((*tempBoard2)[y+1][x-1]) == player && (*tempBoard2)[y+2][x-2] == 'v') {
                     if(!parent)
                         return true;
-                    jumped = true;
                     struct node * newnode;
-                    if(update)
-                        newnode = parent;
+                    if(update) {
+                        if(!jumped)
+                            newnode = parent;
+                        else {
+                            newnode = new struct node;
+                            newnode -> descr = description;
+                            newnode -> parent = parent -> parent;
+                            parent -> parent -> children.push_back(newnode);
+                        }
+                    }
                     else {
                         newnode = new struct node;
                         parent -> children.push_back(newnode);
@@ -477,6 +538,7 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                         newnode -> descr += (char)(*tempBoard2)[y][x] + std::to_string(y+2) + std::to_string(x-2);
                         mustJumpRecapture(playerTurn, x-2, y+2, tempBoard2, newnode, true);
                     }
+                    jumped = true;
                 }
             }
         }
@@ -485,10 +547,17 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                 if((*tempBoard2)[y][x] == std::toupper(comp) && std::tolower((*tempBoard2)[y-1][x+1]) == player && (*tempBoard2)[y-2][x+2] == 'v') {
                     if(!parent)
                         return true;
-                    jumped = true;
                     struct node * newnode;
-                    if(update)
-                        newnode = parent;
+                    if(update) {
+                        if(!jumped)
+                            newnode = parent;
+                        else {
+                            newnode = new struct node;
+                            newnode -> descr = description;
+                            newnode -> parent = parent -> parent;
+                            parent -> parent -> children.push_back(newnode);
+                        }
+                    }
                     else {
                         newnode = new struct node;
                         parent -> children.push_back(newnode);
@@ -499,16 +568,24 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                                      + (char)(*tempBoard2)[y][x] + std::to_string(y-2) + std::to_string(x+2);
 
                     mustJumpRecapture(playerTurn, x+2, y-2, tempBoard2, newnode, true);
+                    jumped = true;
                 }
             }
             if(y < 6) { //down
                 if(std::tolower((*tempBoard2)[y+1][x+1]) == player && (*tempBoard2)[y+2][x+2] == 'v') {
                     if(!parent)
                         return true;
-                    jumped = true;
                     struct node * newnode;
-                    if(update)
-                        newnode = parent;
+                    if(update) {
+                        if(!jumped)
+                            newnode = parent;
+                        else {
+                            newnode = new struct node;
+                            newnode -> descr = description;
+                            newnode -> parent = parent -> parent;
+                            parent -> parent -> children.push_back(newnode);
+                        }
+                    }
                     else {
                         newnode = new struct node;
                         parent -> children.push_back(newnode);
@@ -523,6 +600,7 @@ bool mustJumpRecapture(bool playerTurn, int x, int y, char (*tempBoard)[8][8], s
                         newnode -> descr += (char)(*tempBoard2)[y][x] + std::to_string(y+2) + std::to_string(x+2);
                         mustJumpRecapture(playerTurn, x+2, y+2, tempBoard2, newnode, true);
                     }
+                    jumped = true;
                 }
             }
         }
@@ -673,29 +751,28 @@ int minimax(struct node* position, bool playerTurn, int depth, int alpha, int be
         return staticEvaluation(position);
 
     if(!playerTurn) {
-        int maxEval = -1000, eval;
+        int maxEval = -1000;
         getChildren(position, playerTurn);
         for(std::vector<struct node *>::iterator it = std::begin(position -> children); it != std::end(position -> children); ++it) {
-            eval = minimax(*it, !playerTurn, depth - 1, alpha, beta);
-            maxEval = std::max(maxEval, eval);
-            alpha = std::max(alpha, eval);
+            (*it) -> score = minimax(*it, !playerTurn, depth - 1, alpha, beta);
+            maxEval = std::max(maxEval, (*it) -> score);
+            alpha = std::max(alpha, maxEval);
             if (beta <= alpha)
-                break;
+                return 999;
         }
-        position -> score = maxEval;
         return maxEval;
     }
 
     else {
-        int minEval = 1000, eval;
+        int minEval = 1000;
         getChildren(position, playerTurn);
         for(std::vector<struct node *>::iterator it = std::begin(position -> children); it != std::end(position -> children); ++it) {
-            eval = minimax(*it, !playerTurn, depth - 1, alpha, beta);
-            minEval = std::min(beta, eval);
+            (*it) -> score = minimax(*it, !playerTurn, depth - 1, alpha, beta);
+            minEval = std::min(minEval, (*it) -> score);
+            beta = std::min(beta, minEval);
             if(beta <= alpha)
-                break;
+                return -999;
         }
-        position -> score = minEval;
         return minEval;
     }
 
@@ -747,7 +824,7 @@ bool gameover(bool playerTurn, struct node* position) {
     for(int y = 0; y < 8; ++y)
         for(int x = 0; x < 8; ++x)
             if ((playerTurn && std::tolower(Board[y][x]) == player) || (!playerTurn && std::tolower(Board[y][x]) == comp)) {
-                if(mustJumpRecapture(playerTurn, x, y, &board, nullptr, false) || regularMove(playerTurn, x, y, board, nullptr))
+                if(mustJumpRecapture(playerTurn, x, y, &Board, nullptr, false) || regularMove(playerTurn, x, y, Board, nullptr))
                     return false;
             }
 
@@ -779,56 +856,56 @@ int staticEvaluation(struct node* position) {
         for (int j = 0; j < 8; ++j) {
             if(tempBoard[i][j] == player) {
                 if(i == 7)
-                    score -= 2;
+                    score -= 1;
                 else if(i == 3) {
                     if(j == 2 || j == 4)
-                        score -= 3;
+                        score -= 2;
                 }
                 else if(i == 4) {
                     if(j == 3 || j == 5)
-                        score -= 3;
+                        score -= 2;
                 }
                 score -= 10;
                 win = false;
             }
             else if(tempBoard[i][j] == (char)std::toupper(player)) {
                 if(i == 7)
-                    score -= 2;
+                    score -= 1;
                 else if(i == 3) {
                     if(j == 2 || j == 4)
-                        score -= 3;
+                        score -= 2;
                 }
                 else if(i == 4) {
                     if(j == 3 || j == 5)
-                        score -= 3;
+                        score -= 2;
                 }
                 score -= 15;
                 win = false;
             }
             else if(tempBoard[i][j] == comp) {
                 if(!i)
-                    score += 2;
+                    score += 1;
                 else if(i == 3) {
                     if(j == 2 || j == 4)
-                        score += 3;
+                        score += 2;
                 }
                 else if(i == 4) {
                     if(j == 3 || j == 5)
-                        score += 3;
+                        score += 2;
                 }
                 score += 10;
                 lose = false;
             }
             else if(tempBoard[i][j] == (char)std::toupper(comp)) {
                 if(!i)
-                    score += 2;
+                    score += 1;
                 else if(i == 3) {
                     if(j == 2 || j == 4)
-                        score += 3;
+                        score += 2;
                 }
                 else if(i == 4) {
                     if(j == 3 || j == 5)
-                        score += 3;
+                        score += 2;
                 }
                 score += 15;
                 lose = false;
@@ -847,7 +924,6 @@ int staticEvaluation(struct node* position) {
             height = 1;
         score -= (int)(500/height);
     }
-    position -> score = score;
     return score;
 }
 

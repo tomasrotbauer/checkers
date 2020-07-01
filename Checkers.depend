@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1593314823 source:c:\users\kluci\documents\checkers\main.cpp
+1593561943 source:c:\users\kluci\documents\checkers\main.cpp
 	<SFML/Graphics.hpp>
 	<iostream>
 	<cstdlib>
